@@ -1,37 +1,42 @@
-# -*- coding: utf-8 -*-
-# # Copyright (c) 2007-2013 NovaReto GmbH
-# # cklinger@novareto.de
-
 import logging
-from uvc.cache.util import get_memcached_client
+from functools import wraps
+from zope.component import getUtility
+from .interfaces import IStore
+from .stores import RedisStore, DEFAULT_VALUE
+from datetime import timedelta
+from cromlech.marshallers import PickleMarshaller
 
 
 logger = logging.getLogger('uvc.cache')
 
 
-def cache_me(marshaller, lifetime=None, ns=None, raw=False, dependencies=[]):
+def cache_me(marshaller, store_name='redis', lifetime=600):
+    store = getUtility(IStore, name=store_name)
 
     def cache(func):
+        @wraps(func)
         def cache_replacement(*args, **kwargs):
             key = marshaller(func, *args, **kwargs)
-            client = get_memcached_client()
-            value = client.query(key, ns=ns, raw=raw)
-            logger.debug('get value %s from cache with key %s' % (value, key))
-            if not value:
+            value = store.get(key)
+            if value is DEFAULT_VALUE:
                 value = func(*args, **kwargs)
-                client.set(value, key, lifetime=lifetime, ns=ns, raw=raw)
+                store.set(key, value, delta=lifetime)
                 logger.debug('set value %s with key %s' % (value, key))
+            else:
+                logger.debug('get value %s from cache with key %s' % (value, key))
             return value
         return cache_replacement
     return cache
 
 
-def remove_from_cache(marshaller):
+def remove_from_cache(marshaller, store_name='redis'):
+    store = getUtility(IStore, name=store_name)
+
     def invalidate(func):
+        @wraps(func)
         def invalidate_replacement(*args, **kwargs):
             key = marshaller(func, *args, **kwargs)
-            client = get_memcached_client()
-            deleted = client.invalidate(key, raw=False)
+            deleted = store.delete(key)
             logger.debug('remove key %s from store' % key)
             return func(*args, **kwargs)
         return invalidate_replacement

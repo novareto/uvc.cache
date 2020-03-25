@@ -3,6 +3,19 @@ import os
 
 version = '0.10.dev0'
 
+
+install_requires = [
+    'setuptools',
+    'cromlech.marshallers',
+    'redis',
+    'zope.component',
+]
+
+tests_require = [
+    'pytest',
+    'pytest-redis >= 1.3.2',
+]
+
 setup(name='uvc.cache',
       version=version,
       description="",
@@ -21,9 +34,7 @@ setup(name='uvc.cache',
       namespace_packages=['uvc'],
       include_package_data=True,
       zip_safe=False,
-      install_requires=[
-          'setuptools',
-          'lovely.memcached'
-          # -*- Extra requirements: -*-
-      ],
+      tests_require=tests_require,
+      install_requires=install_requires,
+      extras_require={'test': tests_require},
       )
